@@ -54,25 +54,42 @@ func main() {
 }
 
 // FS implements the hello world file system.
-type FS struct{}
+type FS struct {
+	root string
+}
 
-func (FS) Root() (fs.Node, error) {
-	return Dir{}, nil
+func (f FS) Root() (fs.Node, error) {
+	return Dir{mapped: f.root}, nil
 }
 
 // Dir implements both Node and Handle for the root directory.
-type Dir struct{}
+type Dir struct {
+	path string
+}
 
-func (Dir) Attr(ctx context.Context, a *fuse.Attr) error {
-	a.Inode = 1
-	a.Mode = os.ModeDir | 0555
+func (d Dir) Attr(ctx context.Context, a *fuse.Attr) error {
+
+	fileinfo, err := os.Stat(d)
+	a.Mode = stat.Mode()
+
+	if err != nil {
+		return err
+	}
+
+	stat, ok := fileinfo.Sys().(*syscall.Stat_t)
+
+	if !ok {
+		panic("not stat")
+	}
+
+	a.Inode = stat.Ino
 	return nil
 }
 
-func (Dir) Lookup(ctx context.Context, name string) (fs.Node, error) {
-	if name == "hello" {
-		return File{}, nil
-	}
+func (d Dir) Lookup(ctx context.Context, name string) (fs.Node, error) {
+
+	full := os.path.Join(d.path, name)
+
 	return nil, fuse.ENOENT
 }
 
